@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roadster Physics Check · Wooten Labs</title>
+<meta name="description" content="Every stunt from Tesla's October 2026 Roadster reveal, rebuilt in 3D from the on-screen telemetry and checked against real physics: thrust, G, suction and the air left in the tanks.">
+<link rel="canonical" href="https://wooten-labs.com/roadster/">
+<meta property="og:title" content="Roadster Physics Check · Wooten Labs">
+<meta property="og:description" content="Can a Roadster really fly on 600 litres of air? Each stunt rebuilt in 3D and checked with real physics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Michroma&family=Montserrat:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a launch-page look. Black, wide display type, light body text, square controls, hairlines.
+     On a laptop the first screen is the whole tool: a slim title bar, the stunt list, the 3D replay with
+     its key numbers and charts underneath, and the hardware dials beside it. The intro, the reasoning
+     and the method follow below. One dark look on purpose. */
+  :root {
+    color-scheme: dark;
+    --bg: #000;
+    --surface: #0a0a0b;
+    --surface-2: #131315;
+    --hair: rgba(255, 255, 255, .13);
+    --hair-strong: rgba(255, 255, 255, .28);
+    --ink: #eeeeee;
+    --ink-2: #c9cacc;
+    --ink-3: #8b8c90;
+    --gold: #c9a66b;
+    --thrust: #ffb54d;
+    --velocity: #5ad1ff;
+    --gravity: #f4f4f4;
+    --suction: #b79bff;
+    --normal: #46d6a8;
+    --friction: #9fd77f;
+    --good: #46d6a8;
+    --tight: #ffb54d;
+    --fail: #ff6b6b;
+    --display: "Michroma", "Arial Black", system-ui, sans-serif;
+    --body: "Montserrat", system-ui, -apple-system, Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --page: 1360px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-weight: 300; font-size: 16px; line-height: 1.6; letter-spacing: .01em; }
+  a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--hair-strong); }
+  a:hover { text-decoration-color: var(--ink); }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; }
+  .wrap { max-width: var(--page); margin: 0 auto; padding-inline: 24px; }
+  .label { font-family: var(--display); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .topbar { display: flex; align-items: center; gap: 22px; padding: 0 20px; height: 48px; border-bottom: 1px solid var(--hair);
+    background: radial-gradient(40% 160% at 50% 0%, rgba(255, 255, 255, .07), rgba(0, 0, 0, 0) 70%), var(--bg); }
+  .topbar a { font-family: var(--display); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; text-decoration: none; color: var(--ink-3); white-space: nowrap; }
+  .topbar a:hover { color: var(--ink); }
+  .topbar h1 { font-size: 14px; letter-spacing: .22em; text-transform: uppercase; white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .topbar a.small { color: var(--ink-2); padding: 6px 12px; background: rgba(255, 255, 255, .07); }
+
+  .headline { max-width: 76ch; margin: 22px auto 0; padding-top: 18px; border-top: 1px solid var(--hair); color: var(--ink); font-size: 16px; font-weight: 300; text-align: center; }
+
+  /* Stunt list */
+  .stunts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-bottom: 1px solid var(--hair); }
+  .stunt { all: unset; cursor: pointer; display: grid; gap: 3px; align-content: center; justify-items: center; text-align: center; padding: 8px 12px; border-right: 1px solid var(--hair); position: relative; transition: background .2s; }
+  .stunt:last-child { border-right: 0; }
+  .stunt:hover { background: rgba(255, 255, 255, .04); }
+  .stunt[aria-pressed="true"] { background: rgba(255, 255, 255, .07); }
+  .stunt[aria-pressed="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); }
+  .stunt .name { font-family: var(--display); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; line-height: 1.45; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; font-family: var(--display); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .why { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .chip.good { color: var(--good); } .chip.tight { color: var(--tight); } .chip.fail { color: var(--fail); }
+
+  /* Replay */
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 340px; border-bottom: 1px solid var(--hair); }
+  .viewer { position: relative; min-width: 0; background: #000; }
+  .viewport { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 100%; max-height: 78vh; overflow: hidden; }
+  .viewport canvas { display: block; width: 100%; height: 100%; }
+  .hud-top { position: absolute; left: 18px; top: 14px; right: 18px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
+  .hud-title { font-family: var(--display); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; text-shadow: 0 1px 8px #000; }
+  .hud-phase { font-family: var(--mono); font-size: 12.5px; color: var(--thrust); margin-top: 4px; text-shadow: 0 1px 8px #000; }
+  .legend { display: grid; grid-template-columns: repeat(2, auto); gap: 3px 18px; align-content: start; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); text-shadow: 0 1px 6px #000; background: rgba(0, 0, 0, .45); padding: 8px 12px; }
+  .legend span { white-space: nowrap; }
+  .legend b { font-weight: 500; color: var(--ink); margin-left: 4px; }
+  .legend .idle { opacity: .45; }
+  .legend span::before { content: ""; display: inline-block; width: 14px; height: 2px; margin: 0 6px 3px 0; vertical-align: middle; background: var(--c); }
+  .gauges { position: absolute; left: 16px; right: 16px; bottom: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+  .gauge-row { display: flex; gap: 10px; }
+  .gauge { width: 84px; text-align: center; }
+  .gauge svg { width: 84px; height: 62px; display: block; }
+  .gauge .v { font-family: var(--mono); font-size: 17px; margin-top: -32px; text-shadow: 0 1px 6px #000; }
+  .gauge .k { font-family: var(--display); font-size: 8.5px; letter-spacing: .16em; color: var(--ink-2); text-transform: uppercase; margin-top: 3px; text-shadow: 0 1px 6px #000; }
+
+  .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 18px 2px; border-top: 1px solid var(--hair); background: var(--surface); }
+  .btn { all: unset; cursor: pointer; font-family: var(--display); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; padding: 9px 16px; background: rgba(255, 255, 255, .08); color: var(--ink); text-align: center; }
+  .btn:hover { background: rgba(255, 255, 255, .14); }
+  .btn.play { min-width: 64px; background: var(--ink); color: #000; }
+  .btn.play:hover { background: #fff; }
+  .scrub { flex: 1 1 160px; min-width: 0; }
+  .scrub input { width: 100%; accent-color: var(--ink); }
+  .ticks { position: relative; height: 16px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+  .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; top: 2px; }
+  .ticks span::before { content: ""; position: absolute; left: 50%; top: -6px; width: 1px; height: 5px; background: var(--ink-3); }
+  .clock { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .opts { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .opts select { font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--hair); border-radius: 0; padding: 4px 6px; }
+  .opts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .opts input[type="checkbox"] { accent-color: var(--ink); }
+
+  .side { border-left: 1px solid var(--hair); background: var(--surface); min-width: 0; display: grid; align-content: start; }
+  .side section { padding: 18px 20px; border-bottom: 1px solid var(--hair); }
+  .side section:last-child { border-bottom: 0; }
+  .side h2 { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 10px; }
+  .verdict .chip { font-size: 11px; margin-bottom: 10px; }
+  .verdict p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .verdict p + p { margin-top: 8px; }
+  .readouts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 13px; margin: 0; }
+  .readouts dt { color: var(--ink-2); }
+  .readouts dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .readouts dt.group { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hair); font-family: var(--display); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+  .readouts dt.group:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+  .readouts .measured { color: var(--gold); }
+  .readouts .warn { color: var(--fail); }
+  .readouts .ok { color: var(--good); }
+
+  /* Spec numbers */
+  .specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-block: 5px; border-top: 1px solid var(--hair); }
+  .spec { display: flex; align-items: baseline; gap: 10px; padding-inline: 18px; min-width: 0; }
+  .spec + .spec { border-left: 1px solid var(--hair); }
+  .spec .big { font-family: var(--body); font-weight: 300; font-size: 20px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .spec .big small { font-size: .55em; margin-left: 3px; color: var(--ink-2); }
+  .spec .what { color: var(--ink-2); font-size: 11.5px; line-height: 1.25; min-width: 0; }
+
+  /* Charts */
+  .charts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--hair); }
+  .chart { padding: 7px 14px 5px; min-width: 0; }
+  .chart + .chart { border-left: 1px solid var(--hair); }
+  .chart h3 { font-family: var(--display); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 4px; }
+  .chart canvas { display: block; width: 100%; height: 150px; }
+  .chart .key { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 4px; }
+  .chart .key i { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 5px; }
+  .chart .key i.dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--gold); background: transparent; }
+  .chart .key i.dash { background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 6px); height: 1px; }
+
+  /* Text sections */
+  .section { padding-block: 64px 10px; }
+  .section > .label { text-align: center; margin-bottom: 14px; }
+  .section > h2 { text-align: center; font-size: clamp(20px, 2.6vw, 30px); letter-spacing: .08em; text-transform: uppercase; }
+  .section > .lede { text-align: center; max-width: 70ch; margin: 16px auto 0; color: var(--ink-2); font-weight: 200; font-size: 17px; }
+  .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 34px; border-top: 1px solid var(--hair); }
+  .col { padding: 22px 24px 8px; min-width: 0; }
+  .col + .col { border-left: 1px solid var(--hair); }
+  .col h3 { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 12px; }
+  .col p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .col p + p { margin-top: 10px; }
+  .math { font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--surface-2); padding: 10px 12px; margin-top: 12px; overflow-x: auto; white-space: pre; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--hair); margin: -4px 0 12px; }
+  .tab { all: unset; cursor: pointer; font-family: var(--display); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); padding: 6px 12px 8px 0; margin-right: 14px; }
+  .tab[aria-selected="true"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+  .hint { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-3); }
+  .knobs { display: grid; gap: 9px; }
+  .knob { display: grid; gap: 3px; min-width: 0; }
+  .knob-head { display: flex; align-items: center; gap: 6px; }
+  .knob-head label { font-family: var(--display); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+  .knob-head output { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--gold); white-space: nowrap; }
+  .info { all: unset; cursor: pointer; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--ink-3); color: var(--ink-2); font: italic 600 9px/14px Georgia, serif; text-align: center; flex: none; }
+  .info:hover, .info[aria-expanded="true"] { border-color: var(--gold); color: var(--gold); }
+  .info:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+  .why-note { margin: 2px 0 4px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); background: var(--surface-2); padding: 8px 10px; }
+  .knob input[type="range"] { width: 100%; margin: 0; accent-color: var(--ink); }
+  .knob select { font: 400 13px var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--hair); border-radius: 0; padding: 4px; }
+  .side .reset { margin-top: 12px; font-size: 9.5px; padding: 7px 12px; }
+  .banner { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); pointer-events: none; font-family: var(--display); font-size: clamp(16px, 2.4vw, 28px); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: rgba(200, 30, 30, .85); padding: 10px 22px; white-space: nowrap; }
+  .banner.ok { background: rgba(30, 140, 100, .85); }
+  .explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; margin: 30px 0 0; }
+  .explain div { padding: 14px 0; border-top: 1px solid var(--hair); min-width: 0; }
+  .explain dt { font-family: var(--display); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px; }
+  .explain dd { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+
+  .method { columns: 2 380px; column-gap: 40px; margin-top: 34px; color: var(--ink-2); font-size: 15px; }
+  .method p { margin: 0 0 14px; break-inside: avoid; }
+  .method strong { color: var(--ink); font-weight: 500; }
+  .sources { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14.5px; break-inside: avoid; }
+  footer { margin-top: 56px; padding-block: 26px 40px; border-top: 1px solid var(--hair); color: var(--ink-3); font-size: 12.5px; text-align: center; }
+
+  /* Laptop and up: the tool fills exactly one screen and only the side panel scrolls. */
+  @media (min-width: 1101px) and (min-height: 600px) {
+    .app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto auto minmax(0, 1fr); }
+    .stage { min-height: 0; }
+    .viewer { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; min-height: 0; }
+    .viewport { aspect-ratio: auto; max-height: none; height: 100%; min-height: 0; }
+    .side { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+    .chart canvas { height: clamp(56px, 11vh, 110px); }
+    .transport .btn { padding: 7px 14px; }
+  }
+  @media (max-width: 1100px) {
+    .stage { grid-template-columns: minmax(0, 1fr); }
+    .side { border-left: 0; border-top: 1px solid var(--hair); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .side section { border-bottom: 0; }
+    .side section + section { border-left: 1px solid var(--hair); }
+    .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .chart:nth-child(3) { border-left: 0; }
+    .chart:nth-child(n + 3) { border-top: 1px solid var(--hair); }
+    .explain { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 760px) {
+    .wrap { padding-inline: 16px; }
+    .topbar { padding: 0 16px; gap: 14px; }
+    .topbar h1 { font-size: 11px; letter-spacing: .14em; white-space: normal; }
+    .topbar .brand, .topbar a.small { display: none; }
+    .stunts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stunt { border-bottom: 1px solid var(--hair); }
+    .stunt:nth-child(2n) { border-right: 0; }
+    .side { grid-template-columns: minmax(0, 1fr); }
+    .side section + section { border-left: 0; border-top: 1px solid var(--hair); }
+    .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+    .spec:nth-child(3) { border-left: 0; }
+    .cols { grid-template-columns: minmax(0, 1fr); }
+    .col + .col { border-left: 0; border-top: 1px solid var(--hair); }
+    .viewport { aspect-ratio: 1 / 1; max-height: 70vh; }
+    .gauges, .legend { display: none; }
+    .hud-title { font-size: 12px; }
+  }
+  @media (max-width: 480px) {
+    .charts { grid-template-columns: minmax(0, 1fr); }
+    .chart + .chart { border-left: 0; border-top: 1px solid var(--hair); }
+  }
+</style>
+</head>
+<body>
+
+<main id="top">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="/">Wooten Labs</a>
+      <h1>Roadster Physics Check</h1>
+      <span class="spacer"></span>
+      <a href="#about">How this works</a>
+      <a href="https://github.com/jonclegg/roadster-physics-check" target="_blank" rel="noopener">Code on GitHub</a>
+      <a class="small" href="/#projects">Projects</a>
+    </header>
+    <nav class="stunts" id="picker" aria-label="Pick a stunt"></nav>
+
+  <section class="stage" aria-label="Replay">
+    <div class="viewer">
+      <div class="viewport" id="viewport">
+        <div class="banner" id="banner" hidden></div>
+        <div class="hud-top">
+          <div>
+            <div class="hud-title" id="hudTitle"></div>
+            <div class="hud-phase" id="hudPhase"></div>
+          </div>
+          <div class="legend" aria-label="Arrow colours">
+            <span data-force="weight" style="--c: var(--gravity)">Weight <b>–</b></span>
+            <span data-force="thrust" style="--c: var(--thrust)">Thrust <b>–</b></span>
+            <span data-force="suction" style="--c: var(--suction)">Fan suction <b>–</b></span>
+            <span data-force="road" style="--c: var(--normal)">Road push <b>–</b></span>
+            <span data-force="grip" style="--c: var(--friction)">Tyre grip <b>–</b></span>
+            <span data-force="velocity" style="--c: var(--velocity)">Speed <b>–</b></span>
+          </div>
+        </div>
+        <div class="gauges" aria-hidden="true">
+          <div class="gauge-row" id="gaugesLeft"></div>
+          <div class="gauge-row right" id="gaugesRight"></div>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="btn play" id="play" type="button">Play</button>
+        <button class="btn" id="restart" type="button">Restart</button>
+        <div class="scrub">
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Replay position">
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <div class="clock" id="clock">0.00 s</div>
+        <div class="opts">
+          <label>Speed <select id="speed"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+          <label>Camera <select id="camera"><option value="broadcast">Broadcast</option><option value="chase">Chase</option><option value="orbit">Free (drag)</option></select></label>
+          <label><input type="checkbox" id="showVectors" checked> Arrows</label>
+        </div>
+      </div>
+      <section class="specs" id="specs" aria-label="Key numbers for this stunt"></section>
+      <section class="charts" id="charts" aria-label="Charts"></section>
+    </div>
+    <aside class="side">
+      <section class="verdict" id="verdictCard" aria-live="polite"></section>
+      <section class="panel">
+        <div class="tabs" role="tablist" aria-label="Side panel">
+          <button class="tab" type="button" role="tab" id="tabHardware" aria-selected="true" aria-controls="hardwarePanel">Hardware</button>
+          <button class="tab" type="button" role="tab" id="tabNumbers" aria-selected="false" aria-controls="numbersPanel">Live numbers</button>
+        </div>
+        <div id="hardwarePanel" role="tabpanel" aria-labelledby="tabHardware">
+          <p class="hint">Change the car and it flies the same stunt again. Too heavy, too weak or too little air and it crashes.</p>
+          <div class="knobs" id="controls"></div>
+          <button class="btn reset" id="resetParams" type="button">Reset to our best estimates</button>
+        </div>
+        <div id="numbersPanel" role="tabpanel" aria-labelledby="tabNumbers" hidden>
+          <dl class="readouts" id="readouts"></dl>
+        </div>
+      </section>
+    </aside>
+  </section>
+  </div>
+
+  <section class="section wrap" id="about">
+    <p class="label">An independent physics check of the October 15, 2026 Roadster reveal</p>
+    <h2>Can 600 litres of air fly a car?</h2>
+    <p class="lede">Tesla's livestream showed the new Roadster hanging upside down 69 ft up, dropping off the top, and kickflipping over a Semi. We read the on-screen telemetry in 0.1–1 s steps, turned each stunt into a program for the car's flight computer, and let a physics simulation fly it: real nozzles, real grip, fan suction and a real-gas model of the air in its tanks. Change the hardware and watch it fail.</p>
+    <p class="headline" id="headlineText">Running the physics…</p>
+  </section>
+
+  <section class="section wrap" id="reasoning">
+    <p class="label">This stunt, step by step</p>
+    <h2 id="reasonTitle"></h2>
+    <div class="cols" id="reasonCols"></div>
+  </section>
+
+  <section class="section wrap" id="assumptions">
+    <p class="label">The hardware settings</p>
+    <h2>What we don't know, you can set</h2>
+    <p class="lede">Tesla gave a few hard numbers: 600 L in two tanks, about 250 kg of air, ten nozzles, and over 80 kN from the four rear ones. The rest are estimates, and they're the settings in the Hardware tab beside the replay. Change one and every stunt is flown again with the new hardware: it may come down hard, clip a car or run out of air.</p>
+    <dl class="explain" id="controlHelp"></dl>
+  </section>
+
+  <section class="section wrap" id="method">
+    <p class="label">How this was built</p>
+    <h2>Method, data and caveats</h2>
+    <div class="method">
+      <p><strong>The telemetry comes from Tesla's broadcast.</strong> During the ramp and kickflip runs the broadcast shows live gauges: downforce (kg), pitch (degrees), altitude (ft) and G. We stepped through <a href="https://www.youtube.com/watch?v=qt5p-_tE8d0" target="_blank" rel="noopener">Tesla's official stream</a> at 0.1 to 1 second intervals and wrote down every reading. They are the gold dots on the charts.</p>
+      <p><strong>The altitude gauge lags.</strong> On both flights the G gauge spikes about a quarter of a second before the altitude trace bends, and a rear-view shot shows the car clearly airborne while the gauge still reads 0.0 ft. We shift the altitude readings 0.25 s earlier. On the slow wall ride the altitude gauge lags and drifts (it still reads 18 ft with the car parked at the bottom), so there we place the car using the pitch gauge and the ramp's shape instead. Heights on this page are of the car's floor, so a parked car reads 0 whichever way up it is; upside down at the lip that reads 67 ft against the gauge's 68.</p>
+      <p><strong>The ramp is close to a circle.</strong> Pitch and altitude fit a loop of radius 9.5–10.6 m depending on how the gauge's lag is handled. We use 10.5 m, running from flat to 170°, which puts the lip about 21 m (69 ft) up, where the gauge settles.</p>
+      <p><strong>The finale has no gauges.</strong> For the tower flip we measured the car's height in pixels, assuming a 2 m width for scale (Tesla hasn't published the car's dimensions). The camera cuts mid-flight, so treat that stunt's numbers as rough (about ±30%).</p>
+      <p><strong>The air.</strong> Tank gas is modelled as real nitrogen (CoolProp equation of state) in 600 L. As it empties it expands and chills, which lowers both the pressure and the exhaust speed. Exhaust speed comes from the isentropic nozzle equation from the regulator (or tank) pressure down to the open air, scaled by an efficiency of 80% by default. That 20% covers nozzle losses plus two things the ideal equation misses: gas cooling as it drops through the regulator, and the exhaust starting to condense late in a run. With a regulator, thrust stays at full strength until the tank falls below the regulator pressure; without one, thrust falls with tank pressure. Air used is thrust divided by exhaust speed, added up over time.</p>
+      <p><strong>The flight model.</strong> Nothing here follows the video's path. Each stunt is a program for the car's flight computer, read off the video: where to lift off, how hard to burn, how high to go, which roll to fly, and how to land. The car then flies that program as a rigid body, 240 times a second. Ten nozzles sit where they are on the car: four corner nozzles fire down to push toward the roof, four rear nozzles push the nose forward, and two front jets fire sideways to control yaw. The wheels are still spinning when the car leaves the ground, and a spinning wheel acts like a gyroscope: roll the car and it tries to swing the nose sideways. The yaw jets fire to cancel that, so a faster take-off costs a little more air. Each push makes a turning moment as well as a force, so a roll comes from one side pushing harder, and that also shoves the car. The flight computer holds the attitude it wants with those nozzles and plans its landing burn from the thrust it actually has at that moment. If the air runs out, the nozzles are too weak, the roll isn't finished in time or the car comes down on a parked car, it crashes. Change a slider and the same program may not make it.</p>
+      <p><strong>The fans.</strong> The wall ride uses the force balance on a loop: road push = mv²/R + suction + mg·cos(pitch). The tyres must hold the car's weight along the ramp with grip μ = 1.26, the figure Tesla quoted. Fan power comes from the air leaking in under the skirts: flow ≈ 0.6 × perimeter × gap × √(2Δp/ρ), with a sealed floor of about 4 m² and an 8.5 m perimeter.</p>
+      <p><strong>What this can't tell you.</strong> It can't show whether the footage is real, only whether the motion it shows is physically possible with the hardware Tesla described. It also can't show what the car weighs. That number moves every result, so it's the first slider.</p>
+      <ul class="sources">
+        <li><a href="https://www.youtube.com/watch?v=qt5p-_tE8d0" target="_blank" rel="noopener">Tesla, "Roadster Event" livestream</a>: gauges and on-stage figures (600 L, about 250 kg of air, 10 nozzles, over 80 kN, 2 G of suction, 1.26 G tyres, 0.81 s)</li>
+        <li><a href="https://teslanorth.com/2026/10/16/tesla-roadster-moravy-hagerty-engineering-interview/" target="_blank" rel="noopener">Lars Moravy's Hagerty interview, via Tesla North</a>: "just under 1,700 kilos" (trim not named, final numbers pending), a 200 L nitrogen tank at up to 10,000 psi plus 400 L more on the Rocket, four fans of about 20 kW, a 6–7 hour refill</li>
+        <li><a href="https://paultan.org/2026/10/16/tesla-roadster-revealed-flies-on-spacex-air-thrusters-0-96-km-h-in-0-81s-production-2028/" target="_blank" rel="noopener">Paul Tan</a>: the "Thruster 5,500 psi" readout in Tesla's interior photos</li>
+        <li><a href="https://cellcog.ai/blog/tesla-roadster-physics/" target="_blank" rel="noopener">CellCog</a>: an independent estimate of exhaust speed and hover time</li>
+        <li>Vehicle outlines traced and redrawn from Wikimedia Commons photos: <a href="https://commons.wikimedia.org/wiki/File:Tesla_Model_3_(2023),_long_range,_Japan,_left-side.jpg" target="_blank" rel="noopener">Model 3</a> by Kazyakuruma (CC0); <a href="https://commons.wikimedia.org/wiki/File:Tesla_Cybercab_at_Santana_Row_side_view_dllu.jpg" target="_blank" rel="noopener">Cybercab</a> by Dllu and <a href="https://commons.wikimedia.org/wiki/File:Tesla_Semi_Render.svg" target="_blank" rel="noopener">Semi render</a> by Jzh2074, both <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; <a href="https://commons.wikimedia.org/wiki/File:Tesla_Cybertruck_-_Side_-_Tesla_Store_Athens_2024.jpg" target="_blank" rel="noopener">Cybertruck</a> by Mpelas199 (CC0). The Roadster's shape is our own, estimated from Tesla's livestream.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="wrap">A Wooten Labs analysis built from public footage and statements. Not affiliated with, or endorsed by, Tesla or SpaceX.</footer>
+</main>
+
+<script src="tank-tables.js?v=20261017l"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="app.js?v=20261017l"></script>
+</body>
+</html>
