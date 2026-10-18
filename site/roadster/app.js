@@ -2,11 +2,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { FLEET_BUILDERS, buildRoadster } from './models.js?v=20261017l';
+import { FLEET_BUILDERS, buildRoadster } from './models.js?v=20261017m';
 import {
   DEFAULT_PARAMS, DROP_TELEMETRY, FEET, FRAME_RATE, fullTankExhaust, GRAVITY, KICKFLIP_TELEMETRY, MPH, RAMP_LIP_DEGREES,
   RAMP_RADIUS, RIDE_HEIGHT, TOWER_MEASURED, WALL_TELEMETRY, fleetLayout, rampPoint, setTankTables, simulate, verdict,
-} from './physics.js?v=20261017l';
+} from './physics.js?v=20261017m';
 
 setTankTables(window.TANK_TABLES);
 
@@ -703,6 +703,13 @@ function chartSpecs() {
   ];
 }
 
+// The last spec number: how fast it came down, or what stopped it if it never reached the road
+function touchdownSpec(s, landed) {
+  if (landed) return [number(s.touchdownSpeed, 1), 'm/s', 'Touchdown speed'];
+  if (s.touchdownSpeed !== null) return [number(s.touchdownSpeed, 1), 'm/s', 'Speed hitting the road'];
+  return ['–', '', s.outcome.text];
+}
+
 function niceStep(range, count) {
   const raw = range / count, power = 10 ** Math.floor(Math.log10(raw));
   const unit = raw / power;
@@ -850,7 +857,7 @@ function stuntWords(id) {
       verdict: [launched ? `Leaves the lip at ${number(s.launchSpeed, 1)} m/s, uses ${used} of ${usable} of usable air and ${ending}.` : `${s.outcome.text}.`,
         launched && s.catchG ? `The catch peaks at ${number(s.catchG, 1)} G (the broadcast gauge showed 3.1–3.3).` : ''],
       specs: [[number((s.lipHeight ?? 0) / FEET, 0), 'ft', 'Height leaving the lip'], [number(s.catchG ?? 0, 1), 'G', 'Peak G in the catch'],
-        [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], [landed ? number(s.touchdownSpeed, 1) : '–', 'm/s', landed ? 'Touchdown speed' : s.outcome?.text ?? '']],
+        [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], touchdownSpec(s, landed)],
       cols: [
         ['What the video shows', `<p>The second run (7:10) takes the same loop faster, 4–7 m/s. The car leaves the lip at 68 ft upside down and drifting backwards, half-rolls to wheels-down, and falls. At about 30 ft the G gauge jumps to 3.1–3.3 G, the fall stops by about 10 ft, and the car eases down the last few feet over about two seconds.</p><p>The G gauge reads 0.3–0.6 G during the roll, the push the roll itself needs.</p>`],
         ['How the simulation runs it', `<p>The car drives the loop with the same fan and grip limits as the wall ride and flies off the lip with whatever speed it has. Then the flight computer runs the program from the video: a half roll at up to 3.5 rad/s, then a landing burn that plans on 1.8 g of braking down to 10 ft, a 1.5 m/s let-down, and a 0.3 m/s touchdown. It brakes as late as it safely can with the thrust the nozzles have at that moment, so a weaker car starts braking higher. The roll is made by one side pushing harder; starting it upside down pushes the car down a little, so the simulated car falls slightly faster than the real one.</p><div class="math">air used = thrust ÷ exhaust speed, added up\nroll: ${number(s.rollGas ?? 0, 0)} kg · catch: ${number(s.catchGas ?? 0, 0)} kg · let-down: ${number(s.letDownGas ?? 0, 0)} kg</div>`],
@@ -868,7 +875,7 @@ function stuntWords(id) {
       verdict: [hit ? `${s.outcome.text}.` : `Tops out at ${number(s.apex / FEET, 0)} ft, clears the ${s.clearanceOver} by ${number(s.clearance, 1)} m and ${ending}.`,
         `Uses ${used} of ${usable} of usable air.`],
       specs: [[number(s.apex / FEET, 0), 'ft', 'Peak height'], [hit ? '0' : number(s.clearance, 1), 'm', hit ? s.outcome.text : `Clearance over the ${s.clearanceOver}`],
-        [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], [landed ? number(s.touchdownSpeed, 1) : '–', 'm/s', landed ? 'Touchdown speed' : s.outcome?.text ?? '']],
+        [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], touchdownSpec(s, landed)],
       cols: [
         ['What the video shows', `<p>At 11:12 the car rolls toward five Teslas parked side by side: Cybercab, Cybertruck, a Semi roughly 13.5 ft tall, Model Y and Model 3. It fires its corner thrusters at 2.4–3.5 G, rises to about 26 ft, and does a full barrel roll on the way up. It crosses the Semi, brakes at up to 2.4 G, and lands on the far side about four seconds after lift-off.</p>`],
         ['How the simulation runs it', `<p>The program from the video: roll up at 6.2 m/s, lift off 12 m before the middle of the lineup, burn at 2.4 G until it is fast enough to coast to 26 ft, spin a full roll at up to 5 rad/s, stay above 2 m until it is past the last car, then a landing burn that plans on 0.66 g of braking and a 0.6 m/s touchdown. The roll needs one side to push harder than the other, which also pushes the car up, so the program stops its burn early to allow for it.</p><div class="math">climb (burn and roll): ${number(s.climbGas, 0)} kg · landing: ${number(s.landingGas, 0)} kg\nfastest fall: ${number(s.fallSpeed, 1)} m/s</div>`],
@@ -898,7 +905,7 @@ function stuntWords(id) {
     verdict: [landed ? `Tops out at ${number(s.apex, 1)} m and ${ending}, using ${used} of ${usable} of usable air.` : `${s.outcome?.text}.`,
       `The program's boost asks for ${number(s.plannedBoostG, 1)} G; this car got ${number(s.boostG, 1)} G.`],
     specs: [[number(s.boostG, 1), 'G', 'Boost it managed (asked for 4.0)'], [number(s.apex, 1), 'm', 'Peak height (video ~7)'],
-      [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], [landed ? number(s.touchdownSpeed, 1) : '–', 'm/s', landed ? 'Touchdown speed' : s.outcome?.text ?? '']],
+      [number(s.gasUsed, 0), 'kg', `Air used, of ${usable} usable`], touchdownSpec(s, landed)],
     cols: [
       ['What the video shows', `<p>The last stunt (21:53) has no gauges. The car lifts off beside a red tower, rolls a full turn near the top, and lands about three seconds later in a cloud of its own exhaust. Measured in pixels it is 6.4 m up only 0.6 s after lift-off, then 5.4 m up and falling at about 6 m/s at 21:55.6. The camera cuts in between, so treat these heights as ±30%.</p>`],
       ['How the simulation runs it', `<p>The program: a hard boost of 3 g net (4 G felt) until it can coast to about 7 m, a full roll at up to 4.5 rad/s, then a late landing burn planned at 1.8 g of braking. The corner nozzles make 4 × ${number(params.nozzleThrust, 0)} = ${number(4 * params.nozzleThrust, 0)} kN, so the full boost is only possible if the car and its air weigh ${number(s.heaviestForBoost, 0)} kg or less. A heavier car gets a gentler boost and burns longer.</p><div class="math">max mass for the boost = thrust ÷ (4 × g) = ${number(4 * params.nozzleThrust * 1000, 0)} ÷ 39.2</div>`],
@@ -967,8 +974,17 @@ function renderTicks() {
     tower: [[s.liftoffTime, 'Lift-off'], [s.boostEnd, 'Roll'], [s.apexTime, 'Apex'], [s.touchdownTime, s.outcome?.kind === 'landed' ? 'Down' : 'Crash']],
   }[current].filter(([t]) => Number.isFinite(t));
   if (current === 'kickflip' && s.outcome?.kind === 'hit') marks.push([s.crashTime, 'Hit']);
+  marks.sort((a, b) => a[0] - b[0]);
   const t0 = startTime(), t1 = endTime();
-  ticksHost.innerHTML = marks.map(([t, label]) => `<span style="left:${100 * (t - t0) / (t1 - t0)}%">${label}</span>`).join('');
+  // a label too close to the one before keeps its tick but not its text, so the two don't overlap
+  const width = ticksHost.clientWidth, characterWidth = 6.2;
+  let last = null;
+  ticksHost.innerHTML = marks.map(([t, label]) => {
+    const at = (t - t0) / (t1 - t0);
+    const crowded = last !== null && (at - last.at) * width < (last.label.length + label.length) * characterWidth / 2 + 6;
+    if (!crowded) last = { at, label };
+    return `<span style="left:${100 * at}%" title="${label}">${crowded ? '' : label}</span>`;
+  }).join('');
 }
 
 function select(id, autoplay) {
@@ -1123,6 +1139,7 @@ function resize() {
   camera.fov = camera.aspect < 1.3 ? 58 : 40; // keep the same width of scene on tall phone screens
   camera.updateProjectionMatrix();
   for (const chart of charts) renderChartCache(chart);
+  renderTicks();
 }
 new ResizeObserver(resize).observe(viewport);
 

@@ -9,7 +9,7 @@
 // along the car, smooth (superellipse) for the round cars and faceted for the angular ones.
 // Every vehicle is built nose toward +x, roof +y, origin on the ground under the middle of the car.
 import * as THREE from 'three';
-import { monotoneCubic } from './physics.js?v=20261017l';
+import { monotoneCubic } from './physics.js?v=20261017m';
 
 const curve = points => monotoneCubic(points.map(p => p[0]), points.map(p => p[1]));
 
