@@ -48,9 +48,13 @@ This can't tell you whether the footage is real, only whether the motion it show
 
 The core of it, in brief:
 
-$$m\,\dot{\mathbf v} = R(q)\,\mathbf F_{\text{nozzles}} - m g\,\hat{\mathbf y}, \qquad I\,\dot{\boldsymbol\omega} = \mathbf M_{\text{nozzles}} - \boldsymbol\omega \times (I\boldsymbol\omega + \mathbf H_{\text{wheels}})$$
+```math
+m\,\dot{\mathbf v} = R(q)\,\mathbf F_{\text{nozzles}} - m g\,\hat{\mathbf y}, \qquad I\,\dot{\boldsymbol\omega} = \mathbf M_{\text{nozzles}} - \boldsymbol\omega \times (I\boldsymbol\omega + \mathbf H_{\text{wheels}})
+```
 
-$$v_e = \eta\sqrt{2c_pT\left[1 - (p_a/p_0)^{(\gamma-1)/\gamma}\right]}, \qquad \dot m = F/v_e$$
+```math
+v_e = \eta\sqrt{2c_pT\left[1 - (p_a/p_0)^{(\gamma-1)/\gamma}\right]}, \qquad \dot m = F/v_e
+```
 
 The tank's pressure and temperature as it empties come from CoolProp's real-gas nitrogen tables, not the ideal-gas law. The flight computer only ever sees the thrust it has right now, so a weaker or heavier car has to brake earlier and burns more gas.
 
