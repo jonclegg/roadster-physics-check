@@ -157,7 +157,7 @@ The burned gas comes off the car's mass at every step.
 The body frame has the nose along $+x$, the roof along $+y$ and the right side along $+z$, with the origin at the centre of gravity. Mass changes as the gas burns: $m = m_{\text{dry}} + m_{\text{gas}}(t)$.
 
 ```math
-I = m \cdot \operatorname{diag}(k_{\text{roll}}^2,\ k_{\text{yaw}}^2,\ k_{\text{pitch}}^2)
+I = m \cdot \mathrm{diag}(k_{\text{roll}}^2,\ k_{\text{yaw}}^2,\ k_{\text{pitch}}^2)
 ```
 
 ### Forces and moments from the nozzles
@@ -211,13 +211,13 @@ s_i = -\frac{M_{\text{roll}}\,z_i}{4 z^2} + \frac{M_{\text{pitch}}\,x_i}{4 x^2}
 If the spread $\max s_i - \min s_i$ exceeds $F_{\max}$, every $s_i$ is scaled down to fit. Then
 
 ```math
-F_i = \operatorname{clamp}\left(b + s_i,\ 0,\ F_{\max}\right), \qquad b = \operatorname{clamp}\left(\tfrac{L}{4},\ -\min s_i,\ F_{\max} - \max s_i\right)
+F_i = \mathrm{clamp}\left(b + s_i,\ 0,\ F_{\max}\right), \qquad b = \mathrm{clamp}\left(\tfrac{L}{4},\ -\min s_i,\ F_{\max} - \max s_i\right)
 ```
 
 where $L$ is the lift wanted. The yaw jets take the yaw moment:
 
 ```math
-F_y = \operatorname{clamp}\left(-\frac{M_{\text{yaw}}}{x_{\text{yaw}}},\ \pm 0.25\,F_{\max}\right)
+F_y = \mathrm{clamp}\left(-\frac{M_{\text{yaw}}}{x_{\text{yaw}}},\ \pm 0.25\,F_{\max}\right)
 ```
 
 ### Rolling
